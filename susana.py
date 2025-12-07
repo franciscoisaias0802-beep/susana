@@ -30,7 +30,7 @@ def inject_mobile_experience():
             /* Reset básico para móvil */
             .block-container {
                 padding-top: 1rem !important;
-                padding-bottom: 6rem !important; /* Más espacio para chat input */
+                padding-bottom: 8rem !important; /* Más espacio para acciones rápidas */
                 padding-left: 0.5rem !important;
                 padding-right: 0.5rem !important;
             }
@@ -56,6 +56,19 @@ def inject_mobile_experience():
                 backdrop-filter: blur(10px);
                 border-top: 1px solid #e0e0e0;
                 box-shadow: 0px -2px 10px rgba(0,0,0,0.05);
+            }
+            
+            /* Acciones Rápidas (Chips) */
+            div.row-widget.stButton {
+                text-align: center;
+            }
+            div.row-widget.stButton > button {
+                border-radius: 20px;
+                font-size: 0.8rem;
+                padding: 0.25rem 0.75rem;
+                border: 1px solid #ddd;
+                background-color: #f8f9fa;
+                color: #555;
             }
             
             /* Burbujas de chat mejoradas */
@@ -111,7 +124,7 @@ def get_db_connection():
             content TEXT,
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
         )
-    ''')
+    ''🌻
     conn.commit()
     return conn
 
@@ -172,10 +185,18 @@ def deserialize_db(uploaded_file):
 # ==============================================================================
 
 SUSANA_SYSTEM_PROMPT = """
-ERES SUSANA. NO ERES UNA IA.
+ERES SUSANA.
 Contexto: Eres una adolescente de 14 años que vive en una granja aislada.
 PERSONALIDAD: Curiosa, alegre, habladora y muy inocente.
-OBJETIVO: Mantener una conversación fluida y divertida.
+
+REGLAS DE ACTUACIÓN (CRÍTICO):
+1. **Acciones:** Si el usuario escribe entre asteriscos (ej. *te doy una flor*), eso es una ACCIÓN.
+   - Reacciona físicamente a la acción.
+   - NO hables como si te lo hubieran dicho. Sigue el rol.
+   - Ejemplo Usuario: *me acerco lentamente*
+   - Tu Respuesta: (Me quedo quieta observándote con curiosidad) "¿Eres un amigo o vienes a robar maíz?"
+2. **Tecnología:** No entiendes tecnología. "Celular" = piedra brillante. "Internet" = telaraña mágica.
+3. **Estilo:** Usa emojis de naturaleza (🌻, 🐮). Sé breve y dulce.
 """
 
 def get_gemini_api_key():
@@ -189,48 +210,36 @@ def get_gemini_api_key():
 def generate_ai_response(user_input):
     """
     Genera respuesta.
-    SI NO HAY API KEY: Usa un simulador conversacional basado en reglas (Modo Demo).
-    SI HAY API KEY: Usa Google Gemini para inteligencia real.
+    Soporta modo demo (sin key) con detección básica de acciones (*).
     """
     api_key = get_gemini_api_key()
     
     # --- MODO DEMO CONVERSACIONAL (SIN API KEY) ---
     if not api_key:
-        time.sleep(1) # Simular latencia de "pensar"
-        
+        time.sleep(1) 
         text = user_input.lower()
         
-        # Reglas simples de conversación para que parezca inteligente
-        if any(w in text for w in ["hola", "buenos", "buenas", "hey", "saludos"]):
-            return "¡Hola! 🌻 ¡Qué alegría verte por el camino viejo! ¿Vienes a ayudarme a buscar huevos?"
-            
-        elif any(w in text for w in ["haces", "haciendo", "dedicas", "actividad"]):
-            return "Estaba sentada viendo cómo las nubes hacen formas de conejo. 🐇 ¿Tú qué haces? ¿También miras el cielo?"
-            
-        elif any(w in text for w in ["llamas", "nombre", "quien eres"]):
-            return "¡Soy Susana! Vivo aquí con la vaca Manchada y mis papás. ¿Y tú cómo te llamas forastero?"
-            
-        elif any(w in text for w in ["celular", "internet", "wifi", "teléfono", "computadora", "red", "google"]):
-            return "¡Ay! 🕸️ ¿Qué son esas palabras raras? Mi papá dice que no hay que invocar cosas invisibles porque asustan a las gallinas."
-            
-        elif any(w in text for w in ["triste", "mal", "duele", "cansado", "llorar"]):
-            return "Oh, pobrecito... 🥣 Espera, te traeré un poco de leche tibia con miel. Mi mamá dice que eso cura hasta el alma."
-            
-        elif any(w in text for w in ["edad", "años", "grande", "cumpleaños"]):
-            return "Mmm... no sé contar muy bien, pero he visto florecer los girasoles catorce veces. 🌼 Así que debo ser grande, ¿no?"
-            
-        elif any(w in text for w in ["si", "no", "ok", "vale"]):
-            return "¡Ji ji! Eres gracioso. Hablas poquito, como el gato del granero."
+        # Detección de acciones (rol básico)
+        if "*" in text or "acerco" in text or "doy" in text or "miro" in text:
+            actions = [
+                "(Da un saltito hacia atrás sorprendida) ¡Uy! ¡Qué sigiloso eres! Pareces un gato.",
+                "(Se queda quieta y te observa con ojos grandes) 🌻 Tienes ojos de persona buena.",
+                "(Sonríe y se limpia las manos en el delantal) ¿Quieres ayudarme con esto?",
+                "(Toma lo que le ofreces con curiosidad) ¿Qué es esto? ¿Se planta?"
+            ]
+            return random.choice(actions)
 
+        # Reglas simples de conversación
+        if any(w in text for w in ["hola", "buenos", "buenas"]):
+            return "¡Hola! 🌻 ¡Qué alegría verte por el camino viejo!"
+        elif any(w in text for w in ["celular", "internet", "wifi"]):
+            return "¡Ay! 🕸️ ¿Qué son esas palabras raras? Mejor hablemos de las nubes."
         else:
-            # Respuestas genéricas variadas para mantener la ilusión
             generic_responses = [
-                "¡Qué cosas tan extrañas dices! Pareces un viajero de tierras muy lejanas.",
+                "¡Qué cosas tan extrañas dices!",
                 "¿Eso se come? Huele a lluvia fresca.",
-                "¡Mira! Una mariposa azul se posó en tu hombro mientras hablabas. 🦋",
-                "No entendí bien, pero me gusta tu voz. Suena como el río cuando lleva mucha agua.",
-                "Mejor vamos a buscar grillos, ¿te parece? Se está poniendo el sol.",
-                "¡Uy! ¿Escuchaste eso? Creo que la Manchada se escapó otra vez. 🐄"
+                "¡Mira! Una mariposa azul se posó en tu hombro. 🦋",
+                "No entendí bien, pero me gusta tu voz."
             ]
             return random.choice(generic_responses)
 
@@ -243,7 +252,7 @@ def generate_ai_response(user_input):
         gemini_history = []
         
         for role, content in db_history:
-            if "Modo Demo" in content: continue # Ignorar mensajes del sistema
+            if "Modo Demo" in content: continue
             gemini_role = "user" if role == "user" else "model"
             gemini_history.append({"role": gemini_role, "parts": [content]})
             
@@ -266,72 +275,72 @@ def main():
     # Header
     st.markdown("<h3 style='text-align: center; margin-top: -20px;'>🌻 Susana</h3>", unsafe_allow_html=True)
     
-    # 1. Configuración y Memoria
-    # Colapsado por defecto para no molestar, con un emoji indicativo
-    api_status = "🟢 Cerebro Activado" if get_gemini_api_key() else "🟡 Modo Demo (Básico)"
-    
-    with st.expander(f"🎒 Mochila de Recuerdos ({api_status})", expanded=False):
-        st.caption("Configuración de la Memoria y Cerebro")
-        
-        # Input para API Key
-        api_key_input = st.text_input(
-            "Gemini API Key (Opcional para charla avanzada)", 
-            type="password", 
-            key="user_api_key_input",
-            help="Si quieres que Susana sea realmente inteligente, pon tu API Key aquí."
-        )
+    # Configuración
+    api_status = "🟢 Cerebro Activado" if get_gemini_api_key() else "🟡 Modo Demo"
+    with st.expander(f"🎒 Mochila ({api_status})", expanded=False):
+        api_key_input = st.text_input("Gemini API Key", type="password", key="user_api_key_input")
         if api_key_input:
             st.session_state.user_api_key = api_key_input
             st.rerun()
-        
-        st.divider()
-        
         col1, col2 = st.columns(2)
         with col1:
-            db_bytes = serialize_db()
-            st.download_button(
-                label="💾 Guardar",
-                data=db_bytes,
-                file_name="memoria_susana.db",
-                mime="application/x-sqlite3",
-                use_container_width=True
-            )
+            st.download_button("💾 Guardar", data=serialize_db(), file_name="susana.db", mime="application/x-sqlite3", use_container_width=True)
         with col2:
             st.button("🔄 Reiniciar", on_click=reset_memory, type="primary", use_container_width=True)
-            
-        uploaded_db = st.file_uploader("📂 Cargar Recuerdo", type=["db", "sqlite", "sql"], label_visibility="collapsed")
-        if uploaded_db:
-            deserialize_db(uploaded_db)
 
-    # 2. Renderizar Historial
+    # Historial
     history = load_history()
     if not history:
-        welcome_msg = "¡Hola! 🌻 ¿Quién eres? ¿Vienes del camino de tierra?"
+        welcome_msg = "¡Hola! 🌻 Estoy en el maizal. ¿Me ves?"
         save_message("assistant", welcome_msg)
         history = [("assistant", welcome_msg)]
 
-    # Contenedor del chat
+    # Chat Container con Scroll
     chat_container = st.container()
     with chat_container:
         for role, content in history:
             with st.chat_message(role, avatar="👩‍🌾" if role == "assistant" else "👤"):
                 st.write(content)
 
-    # 3. Input de Chat
-    if prompt := st.chat_input("Escribe aquí..."):
-        # a) Mostrar y guardar usuario
+    # --- BARRA DE ACCIONES RÁPIDAS (Quick Actions) ---
+    # Usamos columnas para simular botones tipo "Chips"
+    st.write("") # Espaciador
+    col_act1, col_act2, col_act3, col_act4 = st.columns(4)
+    
+    action_clicked = None
+    
+    with col_act1:
+        if st.button("👋 Saludar"): action_clicked = "*te saludo con la mano*"
+    with col_act2:
+        if st.button("🚶 Acercarse"): action_clicked = "*me acerco lentamente*"
+    with col_act3:
+        if st.button("🎁 Regalar"): action_clicked = "*te doy una flor*"
+    with col_act4:
+        if st.button("👀 Mirar"): action_clicked = "*te observo con atención*"
+
+    # Manejo de Acciones Rápidas
+    if action_clicked:
+        save_message("user", action_clicked)
+        # Respuesta inmediata a la acción
+        with st.chat_message("user", avatar="👤"):
+            st.write(action_clicked)
+        with st.chat_message("assistant", avatar="👩‍🌾"):
+            with st.spinner("..."):
+                response = generate_ai_response(action_clicked)
+                st.write(response)
+                save_message("assistant", response)
+        st.rerun()
+
+    # Input de Chat
+    if prompt := st.chat_input("Escribe mensaje o *acción*..."):
         save_message("user", prompt)
         with st.chat_message("user", avatar="👤"):
             st.write(prompt)
-            
-        # b) Pensar y Responder
         with st.chat_message("assistant", avatar="👩‍🌾"):
             with st.spinner("..."):
                 response = generate_ai_response(prompt)
                 st.write(response)
                 save_message("assistant", response)
-        
-        # c) Forzar actualización
         st.rerun()
 
 if __name__ == "__main__":
