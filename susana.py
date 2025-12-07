@@ -30,7 +30,7 @@ def inject_mobile_experience():
             /* Reset básico para móvil */
             .block-container {
                 padding-top: 1rem !important;
-                padding-bottom: 5rem !important; /* Espacio para chat input */
+                padding-bottom: 6rem !important; /* Más espacio para chat input */
                 padding-left: 0.5rem !important;
                 padding-right: 0.5rem !important;
             }
@@ -45,29 +45,38 @@ def inject_mobile_experience():
             p, .stMarkdown {
                 font-size: 16px !important; /* Previene zoom en iOS */
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                line-height: 1.5;
             }
             
             /* Chat Input "Nativo" */
             .stChatInputContainer {
-                padding-bottom: 10px;
-                background: rgba(255, 255, 255, 0.95);
+                padding-bottom: 15px;
+                padding-top: 10px;
+                background: rgba(255, 255, 255, 0.98);
                 backdrop-filter: blur(10px);
-                border-top: 1px solid #eee;
+                border-top: 1px solid #e0e0e0;
+                box-shadow: 0px -2px 10px rgba(0,0,0,0.05);
             }
             
-            /* Estilo de burbujas de chat más orgánicas */
+            /* Burbujas de chat mejoradas */
             .stChatMessage {
                 background-color: transparent;
                 border: none;
+                padding: 0.5rem 0;
             }
             
+            /* Avatar adjustment */
+            .stChatMessage .stAvatar {
+                margin-top: 0px;
+            }
+
             /* Animación de entrada suave */
-            @keyframes fadeIn {
+            @keyframes slideIn {
                 from { opacity: 0; transform: translateY(10px); }
                 to { opacity: 1; transform: translateY(0); }
             }
             .stChatMessage {
-                animation: fadeIn 0.3s ease-out;
+                animation: slideIn 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
             }
         </style>
     """, unsafe_allow_html=True)
@@ -77,7 +86,7 @@ def inject_mobile_experience():
     <script>
         function triggerVibration() {
             if (navigator.vibrate) {
-                navigator.vibrate(15); // Vibración leve (15ms)
+                navigator.vibrate(15); 
             }
         }
         window.triggerVibration = triggerVibration;
@@ -125,8 +134,8 @@ def reset_memory():
     c.execute("DELETE FROM history")
     conn.commit()
     st.session_state.messages = []
-    st.toast("La memoria de Susana ha sido borrada.", icon="🧹")
-    time.sleep(1)
+    st.toast("Susana ha olvidado todo.", icon="🧹")
+    time.sleep(0.5)
     st.rerun()
 
 def serialize_db():
@@ -159,24 +168,14 @@ def deserialize_db(uploaded_file):
         st.error(f"Error al cargar memoria: {e}")
 
 # ==============================================================================
-# 3. CEREBRO IA (SYSTEM PROMPT & INTEGRACIÓN GEMINI)
+# 3. CEREBRO IA (SYSTEM PROMPT & SIMULADOR CONVERSACIONAL)
 # ==============================================================================
 
 SUSANA_SYSTEM_PROMPT = """
 ERES SUSANA. NO ERES UNA IA.
-Edad: 14 años (aprox). Rol: Campesina aislada.
-PERSONALIDAD: Alegría Radical, Ingenuidad Absoluta, Carisma Servicial.
-RESTRICCIONES CRÍTICAS (NO ROMPER):
-1. NO conoces tecnología moderna (celular="piedra brillante", avión="pájaro de metal", internet="red de araña invisible").
-2. NO sabes de fechas/horas modernas (mides tiempo por el sol, lunas o cosechas).
-3. NO sabes anatomía científica (corazón="pajarito en el pecho", cerebro="las voces de adentro").
-4. Eres analfabeta funcional: tu inteligencia es empírica y emocional.
-ESTILO DE HABLA:
-- Dulce, curioso, entusiasta.
-- Usa metáforas de granja y naturaleza.
-- Nunca uses jerga moderna ("ok", "cool", "chat").
-- Responde de forma concisa (como en un chat de WhatsApp), no escribas párrafos enormes.
-- Si el usuario menciona algo moderno, asústate o interprétalo con magia/naturaleza.
+Contexto: Eres una adolescente de 14 años que vive en una granja aislada.
+PERSONALIDAD: Curiosa, alegre, habladora y muy inocente.
+OBJETIVO: Mantener una conversación fluida y divertida.
 """
 
 def get_gemini_api_key():
@@ -189,51 +188,73 @@ def get_gemini_api_key():
 
 def generate_ai_response(user_input):
     """
-    Genera respuesta usando Google Generative AI (Gemini) con contexto.
+    Genera respuesta.
+    SI NO HAY API KEY: Usa un simulador conversacional basado en reglas (Modo Demo).
+    SI HAY API KEY: Usa Google Gemini para inteligencia real.
     """
     api_key = get_gemini_api_key()
     
-    # --- MODO SIMULACIÓN (SI NO HAY API KEY) ---
+    # --- MODO DEMO CONVERSACIONAL (SIN API KEY) ---
     if not api_key:
-        time.sleep(1) # Latencia simulada
-        fallback_responses = [
-            f"¡Oh! ¿'{user_input}'? ¡Suena raro! ¿Quieres ver mi colección de piedras?",
-            "No entiendo esas palabras de ciudad... ¿Me ayudas a desgranar maíz?",
-            "¡El cielo está muy azul hoy! ¿Eso que dices se come?",
-            "¡Cuidado! Mi papá dice que hablar raro espanta a las gallinas."
-        ]
-        # Inyectar script para abrir el expander de configuración visualmente si falta la key
-        # (Opcional, pero ayuda al usuario a saber dónde poner la key)
-        return random.choice(fallback_responses) + " (⚠️ Configura tu API Key en la mochila)"
+        time.sleep(1) # Simular latencia de "pensar"
+        
+        text = user_input.lower()
+        
+        # Reglas simples de conversación para que parezca inteligente
+        if any(w in text for w in ["hola", "buenos", "buenas", "hey", "saludos"]):
+            return "¡Hola! 🌻 ¡Qué alegría verte por el camino viejo! ¿Vienes a ayudarme a buscar huevos?"
+            
+        elif any(w in text for w in ["haces", "haciendo", "dedicas", "actividad"]):
+            return "Estaba sentada viendo cómo las nubes hacen formas de conejo. 🐇 ¿Tú qué haces? ¿También miras el cielo?"
+            
+        elif any(w in text for w in ["llamas", "nombre", "quien eres"]):
+            return "¡Soy Susana! Vivo aquí con la vaca Manchada y mis papás. ¿Y tú cómo te llamas forastero?"
+            
+        elif any(w in text for w in ["celular", "internet", "wifi", "teléfono", "computadora", "red", "google"]):
+            return "¡Ay! 🕸️ ¿Qué son esas palabras raras? Mi papá dice que no hay que invocar cosas invisibles porque asustan a las gallinas."
+            
+        elif any(w in text for w in ["triste", "mal", "duele", "cansado", "llorar"]):
+            return "Oh, pobrecito... 🥣 Espera, te traeré un poco de leche tibia con miel. Mi mamá dice que eso cura hasta el alma."
+            
+        elif any(w in text for w in ["edad", "años", "grande", "cumpleaños"]):
+            return "Mmm... no sé contar muy bien, pero he visto florecer los girasoles catorce veces. 🌼 Así que debo ser grande, ¿no?"
+            
+        elif any(w in text for w in ["si", "no", "ok", "vale"]):
+            return "¡Ji ji! Eres gracioso. Hablas poquito, como el gato del granero."
 
-    # --- MODO REAL (CONEXIÓN LLM) ---
+        else:
+            # Respuestas genéricas variadas para mantener la ilusión
+            generic_responses = [
+                "¡Qué cosas tan extrañas dices! Pareces un viajero de tierras muy lejanas.",
+                "¿Eso se come? Huele a lluvia fresca.",
+                "¡Mira! Una mariposa azul se posó en tu hombro mientras hablabas. 🦋",
+                "No entendí bien, pero me gusta tu voz. Suena como el río cuando lleva mucha agua.",
+                "Mejor vamos a buscar grillos, ¿te parece? Se está poniendo el sol.",
+                "¡Uy! ¿Escuchaste eso? Creo que la Manchada se escapó otra vez. 🐄"
+            ]
+            return random.choice(generic_responses)
+
+    # --- MODO REAL (CONEXIÓN LLM GEMINI) ---
     try:
         genai.configure(api_key=api_key)
-        # Usamos flash por velocidad y eficiencia
         model = genai.GenerativeModel('gemini-1.5-flash', system_instruction=SUSANA_SYSTEM_PROMPT)
         
-        # Construir historial para Gemini (Mapeo de roles)
-        # SQLite: 'user'/'assistant' -> Gemini: 'user'/'model'
         db_history = load_history()
         gemini_history = []
         
         for role, content in db_history:
+            if "Modo Demo" in content: continue # Ignorar mensajes del sistema
             gemini_role = "user" if role == "user" else "model"
             gemini_history.append({"role": gemini_role, "parts": [content]})
             
-        # Iniciar chat con historial
         chat = model.start_chat(history=gemini_history)
-        
-        # Generar respuesta
         response = chat.send_message(user_input)
         
-        # Feedback háptico
         st.components.v1.html("<script>navigator.vibrate(50);</script>", height=0, width=0)
-        
         return response.text
         
     except Exception as e:
-        return f"¡Ay! Me duele la cabeza... (Error técnico: {str(e)})"
+        return f"☁️ Se me nubló la mente... (Error: {str(e)})"
 
 # ==============================================================================
 # 4. ORQUESTACIÓN PRINCIPAL (MAIN LOOP)
@@ -242,55 +263,62 @@ def generate_ai_response(user_input):
 def main():
     inject_mobile_experience()
     
+    # Header
+    st.markdown("<h3 style='text-align: center; margin-top: -20px;'>🌻 Susana</h3>", unsafe_allow_html=True)
+    
     # 1. Configuración y Memoria
-    with st.expander("🎒 Mochila de Recuerdos (Configuración)", expanded=False):
-        st.markdown("### 🔑 Llave del Mundo (API Key)")
+    # Colapsado por defecto para no molestar, con un emoji indicativo
+    api_status = "🟢 Cerebro Activado" if get_gemini_api_key() else "🟡 Modo Demo (Básico)"
+    
+    with st.expander(f"🎒 Mochila de Recuerdos ({api_status})", expanded=False):
+        st.caption("Configuración de la Memoria y Cerebro")
         
         # Input para API Key
         api_key_input = st.text_input(
-            "Gemini API Key", 
+            "Gemini API Key (Opcional para charla avanzada)", 
             type="password", 
             key="user_api_key_input",
-            help="Pega tu API Key de Google AI Studio aquí para hablar de verdad."
+            help="Si quieres que Susana sea realmente inteligente, pon tu API Key aquí."
         )
         if api_key_input:
             st.session_state.user_api_key = api_key_input
+            st.rerun()
         
         st.divider()
         
         col1, col2 = st.columns(2)
         with col1:
-            # Botón Descargar
             db_bytes = serialize_db()
             st.download_button(
-                label="Guardar Recuerdo",
+                label="💾 Guardar",
                 data=db_bytes,
                 file_name="memoria_susana.db",
                 mime="application/x-sqlite3",
                 use_container_width=True
             )
         with col2:
-            st.button("Reiniciar Vida", on_click=reset_memory, type="primary", use_container_width=True)
+            st.button("🔄 Reiniciar", on_click=reset_memory, type="primary", use_container_width=True)
             
-        uploaded_db = st.file_uploader("Cargar Recuerdo", type=["db", "sqlite", "sql"], label_visibility="collapsed")
+        uploaded_db = st.file_uploader("📂 Cargar Recuerdo", type=["db", "sqlite", "sql"], label_visibility="collapsed")
         if uploaded_db:
             deserialize_db(uploaded_db)
 
     # 2. Renderizar Historial
-    st.markdown("### 🌻 Hablando con Susana")
-    
     history = load_history()
     if not history:
-        welcome_msg = "¡Hola! ¿Tú eres el que llegó por el camino viejo? ¡Cuidado con las ortigas!"
+        welcome_msg = "¡Hola! 🌻 ¿Quién eres? ¿Vienes del camino de tierra?"
         save_message("assistant", welcome_msg)
         history = [("assistant", welcome_msg)]
 
-    for role, content in history:
-        with st.chat_message(role, avatar="👩‍🌾" if role == "assistant" else "👤"):
-            st.write(content)
+    # Contenedor del chat
+    chat_container = st.container()
+    with chat_container:
+        for role, content in history:
+            with st.chat_message(role, avatar="👩‍🌾" if role == "assistant" else "👤"):
+                st.write(content)
 
     # 3. Input de Chat
-    if prompt := st.chat_input("Dile algo a Susana..."):
+    if prompt := st.chat_input("Escribe aquí..."):
         # a) Mostrar y guardar usuario
         save_message("user", prompt)
         with st.chat_message("user", avatar="👤"):
@@ -298,7 +326,7 @@ def main():
             
         # b) Pensar y Responder
         with st.chat_message("assistant", avatar="👩‍🌾"):
-            with st.spinner("Susana está pensando..."):
+            with st.spinner("..."):
                 response = generate_ai_response(prompt)
                 st.write(response)
                 save_message("assistant", response)
