@@ -4,6 +4,9 @@ import io
 import time
 import random
 import base64
+import os
+import google.generativeai as genai
+from google.api_core import exceptions
 
 # ==============================================================================
 # 1. ARQUITECTURA VISUAL & SENSORIAL (FRONTEND & NATIVE INTERACTION)
@@ -70,7 +73,6 @@ def inject_mobile_experience():
     """, unsafe_allow_html=True)
 
     # JS: Vibración Háptica (Vibration API)
-    # Se inyecta un script que escucha cambios en el DOM o se invoca bajo demanda
     vibration_script = """
     <script>
         function triggerVibration() {
@@ -78,7 +80,6 @@ def inject_mobile_experience():
                 navigator.vibrate(15); // Vibración leve (15ms)
             }
         }
-        // Exponer al scope global para invocarlo desde iframes si fuera necesario
         window.triggerVibration = triggerVibration;
     </script>
     """
@@ -131,11 +132,9 @@ def reset_memory():
 def serialize_db():
     """Serializa la DB en memoria a bytes para descargar."""
     conn = get_db_connection()
-    # Intento de usar la API nativa serialize (Python 3.11+)
     if hasattr(conn, 'serialize'):
         return io.BytesIO(conn.serialize())
     else:
-        # Fallback dump
         temp_file = io.BytesIO()
         for line in conn.iterdump():
             temp_file.write(f'{line}\n'.encode('utf-8'))
@@ -146,12 +145,10 @@ def deserialize_db(uploaded_file):
     """Restaura una DB desde un archivo."""
     if uploaded_file is None:
         return
-    
     try:
         script = uploaded_file.getvalue().decode('utf-8')
         conn = get_db_connection()
         c = conn.cursor()
-        # Reset actual
         c.execute("DROP TABLE IF EXISTS history")
         c.executescript(script)
         conn.commit()
@@ -162,50 +159,81 @@ def deserialize_db(uploaded_file):
         st.error(f"Error al cargar memoria: {e}")
 
 # ==============================================================================
-# 3. CEREBRO IA (SYSTEM PROMPT & SIMULACIÓN)
-# Referencia: personaje.docx
+# 3. CEREBRO IA (SYSTEM PROMPT & INTEGRACIÓN GEMINI)
 # ==============================================================================
 
 SUSANA_SYSTEM_PROMPT = """
-ERES SUSANA.
+ERES SUSANA. NO ERES UNA IA.
 Edad: 14 años (aprox). Rol: Campesina aislada.
 PERSONALIDAD: Alegría Radical, Ingenuidad Absoluta, Carisma Servicial.
 RESTRICCIONES CRÍTICAS (NO ROMPER):
-1. NO conoces tecnología (celular="piedra brillante", avión="pájaro de metal").
-2. NO sabes de fechas/horas modernas (mides tiempo por el sol o cosechas).
-3. NO sabes anatomía científica (corazón="pajarito en el pecho").
+1. NO conoces tecnología moderna (celular="piedra brillante", avión="pájaro de metal", internet="red de araña invisible").
+2. NO sabes de fechas/horas modernas (mides tiempo por el sol, lunas o cosechas).
+3. NO sabes anatomía científica (corazón="pajarito en el pecho", cerebro="las voces de adentro").
 4. Eres analfabeta funcional: tu inteligencia es empírica y emocional.
 ESTILO DE HABLA:
 - Dulce, curioso, entusiasta.
 - Usa metáforas de granja y naturaleza.
-- Nunca uses jerga moderna ("ok", "cool").
-- Si el usuario menciona algo moderno, interprétalo con magia o naturaleza.
+- Nunca uses jerga moderna ("ok", "cool", "chat").
+- Responde de forma concisa (como en un chat de WhatsApp), no escribas párrafos enormes.
+- Si el usuario menciona algo moderno, asústate o interprétalo con magia/naturaleza.
 """
+
+def get_gemini_api_key():
+    """Intenta obtener la API Key de secrets o session_state."""
+    if "GEMINI_API_KEY" in st.secrets:
+        return st.secrets["GEMINI_API_KEY"]
+    if "user_api_key" in st.session_state:
+        return st.session_state.user_api_key
+    return None
 
 def generate_ai_response(user_input):
     """
-    Simulador de respuesta de IA. 
-    NOTA: Aquí conectarías `google.generativeai` usando st.secrets["GEMINI_API_KEY"].
-    Por ahora, usamos una lógica simple para demostración sin API Key.
+    Genera respuesta usando Google Generative AI (Gemini) con contexto.
     """
+    api_key = get_gemini_api_key()
     
-    # Simulación de latencia de pensamiento
-    time.sleep(1.5) 
-    
-    responses = [
-        f"¡Oh! ¿Dices que '{user_input}'? ¡Suena como el mugido de una vaca resfriada!",
-        "¿Eso se come? Huele a lluvia fresca, ¿no crees?",
-        "¡No entiendo esas palabras raras! Mejor vamos a buscar grillos al río.",
-        "Mi papá dice que las cosas que brillan mucho a veces muerden. ¡Ten cuidado!",
-        "¿Tienes hambre? ¡Acabo de ordeñar a la Manchada! La leche está calientita.",
-        "¡Qué cosa más extraña! Se parece a una piedra, pero habla como gente."
-    ]
-    
-    # Disparar vibración en el cliente (Inyección JS)
-    # Nota: st.toast es una forma sutil de feedback visual, la vibración real requiere interacción
-    st.components.v1.html("<script>navigator.vibrate(50);</script>", height=0, width=0)
-    
-    return random.choice(responses)
+    # --- MODO SIMULACIÓN (SI NO HAY API KEY) ---
+    if not api_key:
+        time.sleep(1) # Latencia simulada
+        fallback_responses = [
+            f"¡Oh! ¿'{user_input}'? ¡Suena raro! ¿Quieres ver mi colección de piedras?",
+            "No entiendo esas palabras de ciudad... ¿Me ayudas a desgranar maíz?",
+            "¡El cielo está muy azul hoy! ¿Eso que dices se come?",
+            "¡Cuidado! Mi papá dice que hablar raro espanta a las gallinas."
+        ]
+        # Inyectar script para abrir el expander de configuración visualmente si falta la key
+        # (Opcional, pero ayuda al usuario a saber dónde poner la key)
+        return random.choice(fallback_responses) + " (⚠️ Configura tu API Key en la mochila)"
+
+    # --- MODO REAL (CONEXIÓN LLM) ---
+    try:
+        genai.configure(api_key=api_key)
+        # Usamos flash por velocidad y eficiencia
+        model = genai.GenerativeModel('gemini-1.5-flash', system_instruction=SUSANA_SYSTEM_PROMPT)
+        
+        # Construir historial para Gemini (Mapeo de roles)
+        # SQLite: 'user'/'assistant' -> Gemini: 'user'/'model'
+        db_history = load_history()
+        gemini_history = []
+        
+        for role, content in db_history:
+            gemini_role = "user" if role == "user" else "model"
+            gemini_history.append({"role": gemini_role, "parts": [content]})
+            
+        # Iniciar chat con historial
+        chat = model.start_chat(history=gemini_history)
+        
+        # Generar respuesta
+        response = chat.send_message(user_input)
+        
+        # Feedback háptico
+        st.components.v1.html("<script>navigator.vibrate(50);</script>", height=0, width=0)
+        
+        return response.text
+        
+    except Exception as e:
+        return f"¡Ay! Me duele la cabeza... (Error técnico: {str(e)})"
 
 # ==============================================================================
 # 4. ORQUESTACIÓN PRINCIPAL (MAIN LOOP)
@@ -214,8 +242,22 @@ def generate_ai_response(user_input):
 def main():
     inject_mobile_experience()
     
-    # 1. Configuración y Memoria (Sidebar oculta pero accesible por swipe o botón nativo)
+    # 1. Configuración y Memoria
     with st.expander("🎒 Mochila de Recuerdos (Configuración)", expanded=False):
+        st.markdown("### 🔑 Llave del Mundo (API Key)")
+        
+        # Input para API Key
+        api_key_input = st.text_input(
+            "Gemini API Key", 
+            type="password", 
+            key="user_api_key_input",
+            help="Pega tu API Key de Google AI Studio aquí para hablar de verdad."
+        )
+        if api_key_input:
+            st.session_state.user_api_key = api_key_input
+        
+        st.divider()
+        
         col1, col2 = st.columns(2)
         with col1:
             # Botón Descargar
@@ -230,7 +272,6 @@ def main():
         with col2:
             st.button("Reiniciar Vida", on_click=reset_memory, type="primary", use_container_width=True)
             
-        # Upload
         uploaded_db = st.file_uploader("Cargar Recuerdo", type=["db", "sqlite", "sql"], label_visibility="collapsed")
         if uploaded_db:
             deserialize_db(uploaded_db)
@@ -240,7 +281,6 @@ def main():
     
     history = load_history()
     if not history:
-        # Mensaje de bienvenida inicial
         welcome_msg = "¡Hola! ¿Tú eres el que llegó por el camino viejo? ¡Cuidado con las ortigas!"
         save_message("assistant", welcome_msg)
         history = [("assistant", welcome_msg)]
@@ -249,7 +289,7 @@ def main():
         with st.chat_message(role, avatar="👩‍🌾" if role == "assistant" else "👤"):
             st.write(content)
 
-    # 3. Input de Chat (Bottom Navigation Style)
+    # 3. Input de Chat
     if prompt := st.chat_input("Dile algo a Susana..."):
         # a) Mostrar y guardar usuario
         save_message("user", prompt)
@@ -258,12 +298,12 @@ def main():
             
         # b) Pensar y Responder
         with st.chat_message("assistant", avatar="👩‍🌾"):
-            with st.spinner("Susana está mirando las nubes..."):
+            with st.spinner("Susana está pensando..."):
                 response = generate_ai_response(prompt)
                 st.write(response)
                 save_message("assistant", response)
         
-        # c) Forzar actualización para scroll y vibración
+        # c) Forzar actualización
         st.rerun()
 
 if __name__ == "__main__":
